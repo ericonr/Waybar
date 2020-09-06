@@ -20,7 +20,7 @@ void onval(void *arg, unsigned int addr, unsigned int val) {
 }
 
 Sndio::Sndio(const std::string &id, const Json::Value &config)
-    : ALabel(config, "sndio", id, "{volume}%", 2),
+    : ALabel(config, "sndio", id, "{volume}%"),
       hdl_(nullptr),
       addr_(0),
       maxval_(0),
@@ -46,10 +46,21 @@ Sndio::Sndio(const std::string &id, const Json::Value &config)
 
   thread_ = [this] {
     dp.emit();
-    auto now = std::chrono::system_clock::now();
-    auto timeout = std::chrono::floor<std::chrono::seconds>(now + interval_);
-    auto diff = std::chrono::seconds(timeout.time_since_epoch().count() % interval_.count());
-    thread_.sleep_until(timeout - diff);
+
+    int nfds = sioctl_pollfd(hdl_, pfds_, POLLIN);
+    if (nfds == 0) {
+      throw std::runtime_error("sioctl_pollfd() failed.");
+    }
+    while (poll(pfds_, nfds, -1) < 0) {
+      if (errno != EINTR) {
+        throw std::runtime_error("poll() failed.");
+      }
+    }
+
+    int revents = sioctl_revents(hdl_, pfds_);
+    if (revents & POLLHUP) {
+      throw std::runtime_error("disconnected!");
+    }
   };
 }
 
@@ -58,24 +69,10 @@ Sndio::~Sndio() {
 }
 
 auto Sndio::update() -> void {
-  int nfds = sioctl_pollfd(hdl_, pfds_, POLLIN);
-  if (nfds == 0) return;
-  while (poll(pfds_, nfds, 10) < 0) {
-    if (errno != EINTR) {
-      throw std::runtime_error("poll() failed.");
-    }
-  }
-  int revents = sioctl_revents(hdl_, pfds_);
-  if (revents & POLLHUP) {
-    throw std::runtime_error("disconnected!");
-  }
-
   auto format = format_;
   label_.set_markup(fmt::format(format,
                                 fmt::arg("volume", volume_)));
 
-  getState(volume_);
-  event_box_.show();
   ALabel::update();
 }
 
@@ -84,8 +81,9 @@ auto Sndio::set_desc(struct sioctl_desc *d, unsigned int val) -> void {
   std::string node_name{d->node0.name};
 
   if (name == "level" && node_name == "output" && d->type == SIOCTL_NUM) {
-    maxval_ = double{d->maxval};
+    // store addr for output.level value, used in put_val
     addr_ = d->addr;
+    maxval_ = double{d->maxval};
 
     auto fval = double{val};
     volume_ = fval / maxval_ * 100.;
