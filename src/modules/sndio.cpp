@@ -80,16 +80,16 @@ auto Sndio::set_desc(struct sioctl_desc *d, unsigned int val) -> void {
   if (name == "level" && node_name == "output" && d->type == SIOCTL_NUM) {
     // store addr for output.level value, used in put_val
     addr_ = d->addr;
-    maxval_ = double{d->maxval};
+    maxval_ = static_cast<double>(d->maxval);
 
-    auto fval = double{val};
+    auto fval = static_cast<double>(val);
     volume_ = fval / maxval_ * 100.;
   }
 }
 
 auto Sndio::put_val(unsigned int addr, unsigned int val) -> void {
   if (addr == addr_) {
-    auto fval = double{val};
+    auto fval = static_cast<double>(val);
     volume_ = fval / maxval_ * 100.;
   }
 }
