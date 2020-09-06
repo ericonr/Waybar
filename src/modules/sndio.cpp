@@ -37,27 +37,24 @@ Sndio::Sndio(const std::string &id, const Json::Value &config)
 
   sioctl_onval(hdl_, onval, this);
 
-  pfds_ = static_cast<struct pollfd *>(malloc(sizeof(struct pollfd) * sioctl_nfds(hdl_)));
-  if (pfds_ == nullptr) {
-    throw std::runtime_error("sioctl_nfds() failed.");
-  }
+  pfds_.reserve(sioctl_nfds(hdl_));
 
   event_box_.show();
 
   thread_ = [this] {
     dp.emit();
 
-    int nfds = sioctl_pollfd(hdl_, pfds_, POLLIN);
+    int nfds = sioctl_pollfd(hdl_, pfds_.data(), POLLIN);
     if (nfds == 0) {
       throw std::runtime_error("sioctl_pollfd() failed.");
     }
-    while (poll(pfds_, nfds, -1) < 0) {
+    while (poll(pfds_.data(), nfds, -1) < 0) {
       if (errno != EINTR) {
         throw std::runtime_error("poll() failed.");
       }
     }
 
-    int revents = sioctl_revents(hdl_, pfds_);
+    int revents = sioctl_revents(hdl_, pfds_.data());
     if (revents & POLLHUP) {
       throw std::runtime_error("disconnected!");
     }

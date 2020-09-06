@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sndio.h>
+#include <vector>
 #include "ALabel.hpp"
 #include "util/sleeper_thread.hpp"
 
@@ -19,7 +20,7 @@ class Sndio : public ALabel {
   struct sioctl_hdl *hdl_;
   unsigned int addr_;
   double maxval_;
-  struct pollfd *pfds_;
+  std::vector<struct pollfd> pfds_;
   uint16_t volume_;
 };
 
