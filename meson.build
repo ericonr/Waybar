@@ -94,6 +94,7 @@ libnlgen = dependency('libnl-genl-3.0', required: get_option('libnl'))
 libpulse = dependency('libpulse', required: get_option('pulseaudio'))
 libudev = dependency('libudev', required: get_option('libudev'))
 libmpdclient = dependency('libmpdclient', required: get_option('mpd'))
+libsndio = compiler.find_library('sndio', required: get_option('sndio'))
 gtk_layer_shell = dependency('gtk-layer-shell-0',
         required: get_option('gtk-layer-shell'),
         fallback : ['gtk-layer-shell', 'gtk_layer_shell_dep'])
@@ -205,6 +206,12 @@ if gtk_layer_shell.found()
     add_project_arguments('-DHAVE_GTK_LAYER_SHELL', language: 'cpp')
 endif
 
+if libsndio.found()
+    add_project_arguments('-DHAVE_LIBSNDIO', language: 'cpp')
+    src_files += 'src/modules/sndio.cpp'
+    cpp_link_args += ['-sndio']
+endif
+
 if get_option('rfkill').enabled()
     if is_linux
         add_project_arguments('-DWANT_RFKILL', language: 'cpp')
@@ -239,6 +246,7 @@ executable(
         libepoll,
         libmpdclient,
         gtk_layer_shell,
+        libsndio,
         tz_dep
     ],
     include_directories: [include_directories('include')],
